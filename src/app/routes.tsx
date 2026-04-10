@@ -3,7 +3,6 @@ import { Layout } from "./components/Layout";
 import { Home } from "./pages/Home";
 import { Venues } from "./pages/Venues";
 import { Matchmaking } from "./pages/Matchmaking";
-import { Groups } from "./pages/Groups";
 import { AuthPage } from "./components/AuthPage";
 import { Profile } from "./pages/Profile";
 import { Feed } from "./pages/Feed";
@@ -18,7 +17,6 @@ export const router = createBrowserRouter([
       { path: "feed", Component: Feed },
       { path: "venues", Component: Venues },
       { path: "match", Component: Matchmaking },
-      { path: "groups", Component: Groups },
       { path: "messages", Component: Messages },
       { path: "auth", Component: AuthPage },
       { path: "profile", Component: Profile },
