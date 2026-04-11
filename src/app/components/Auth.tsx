@@ -23,7 +23,7 @@ export function Auth({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
   
   const isAdminEmail = (emailToCheck: string) => {
     // Hardcode admin emails hoặc check trong localStorage
-    const ADMIN_EMAILS = ['admin@uehflex.fit', 'you@example.com']; // Thay bằng email của bạn
+    const ADMIN_EMAILS = ['admin@uehflex.fit', 'sinhnguyen.31241026947@st.ueh.edu.vn'];
     return ADMIN_EMAILS.includes(emailToCheck);
   };
 
