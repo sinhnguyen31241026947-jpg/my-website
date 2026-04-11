@@ -7,6 +7,7 @@ import { AuthPage } from "./components/AuthPage";
 import { Profile } from "./pages/Profile";
 import { Feed } from "./pages/Feed";
 import { Messages } from "./pages/Messages";
+import { Admin } from "./pages/Admin";
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: "messages", Component: Messages },
       { path: "auth", Component: AuthPage },
       { path: "profile", Component: Profile },
+      { path: "admin", Component: Admin },
     ],
   },
 ]);

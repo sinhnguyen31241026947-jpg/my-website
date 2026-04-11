@@ -16,7 +16,7 @@ export function Feed() {
   const loadPosts = () => {
     setIsLoading(true);
     getPosts().then(data => {
-      const sorted = (data || []).filter(Boolean).sort((a: any, b: any) => 
+      const sorted = (data || []).filter(Boolean).filter((p: any) => p.status === 'approved').sort((a: any, b: any) => 
         new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()
       );
       setPosts(sorted);
@@ -53,7 +53,7 @@ export function Feed() {
         reputation: profile?.reputationScore || 100,
       });
       setContent("");
-      toast.success("Đăng bài thành công!");
+      toast.success("Bài viết đã được gửi và đang chờ duyệt!");
       loadPosts();
     } catch (error) {
       toast.error("Lỗi khi đăng bài");

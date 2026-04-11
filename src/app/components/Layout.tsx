@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { Users, MapPin, Home, LogIn, LogOut, User, Dumbbell, MessageCircle, X, Send, Globe } from "lucide-react";
+import { Users, MapPin, Home, LogIn, LogOut, User, Dumbbell, MessageCircle, X, Send, Globe, Shield } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { useState, useRef, useEffect } from "react";
 
@@ -49,6 +49,7 @@ export function Layout() {
     { path: "/match", label: "Ghép cặp", icon: Users },
     { path: "/venues", label: "Địa điểm", icon: MapPin },
     { path: "/messages", label: "Tin nhắn", icon: MessageCircle },
+    { path: "/admin", label: "Quản Trị", icon: Shield },
   ];
 
   return (

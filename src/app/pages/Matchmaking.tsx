@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Clock, CheckCircle2, Users, Loader2, Plus, Calendar, Search, Filter, Star, MessageCircle, Send, X } from "lucide-react";
-import { getMatches, createMatch, updateMatch, getProfile, updateProfile, getMessages, sendMessage, createReview } from "../api";
+import { Clock, CheckCircle2, Users, Loader2, Plus, Calendar, Search, Filter, Star, MessageCircle, Send, X, MapPin, Flag } from "lucide-react";
+import { getMatches, createMatch, updateMatch, getProfile, updateProfile, getMessages, sendMessage, createReview, createReport } from "../api";
 import { useAuth } from "../components/AuthContext";
 import { toast } from "sonner";
+
+const venuesBySport: Record<string, string[]> = {
+  "Cầu lông": ["Sân Cầu Lông UEH Cơ sở B", "Sân Cầu Lông Phú Thọ", "Sân Cầu Lông Rạch Miễu"],
+  "Tennis": ["Sân Tennis UEH", "Sân Tennis Tao Đàn", "Sân Tennis Phú Nhuận"],
+  "Chạy bộ": ["Công viên Tao Đàn", "Công viên Gia Định", "Đường chạy UEH"],
+  "Bóng rổ": ["Sân Bóng Rổ UEH", "Sân Bóng Rổ Lê Thị Riêng"],
+  "Bơi lội": ["Hồ Bơi UEH", "Hồ Bơi Phú Thọ", "Hồ Bơi Lam Sơn"],
+  "Gym": ["Phòng Gym UEH", "Phòng Gym California", "Phòng Gym Fit24"],
+};
 
 export function Matchmaking() {
   const { user } = useAuth();
@@ -33,13 +42,20 @@ export function Matchmaking() {
   const [ratingMatch, setRatingMatch] = useState<any>(null);
   const [rating, setRating] = useState(5);
   const [ratingComment, setRatingComment] = useState("");
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportMatch, setReportMatch] = useState<any>(null);
 
-  const loadMatches = () => {
+const loadMatches = () => {
     setIsLoading(true);
     getMatches().then(data => {
-      const sorted = (data || []).filter(Boolean).sort((a: any, b: any) =>
-        new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()
-      );
+      console.log("RAW DATA:", data);
+      const sorted = (data || [])
+        .filter((m: any) => m !== null && m !== undefined && m.id)
+        .sort((a: any, b: any) =>
+          new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()
+        );
+      console.log("FILTERED:", sorted);
       setMatches(sorted);
       setIsLoading(false);
     }).catch(() => {
@@ -48,18 +64,19 @@ export function Matchmaking() {
     });
   };
 
-  useEffect(() => { loadMatches(); }, []);
+  useEffect(() => { loadMatches(); }, [user]);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const filteredMatches = matches.filter(m => {
     if (!m) return false;
+    const status = m.status || "open";
     if (activeTab === "my-requests" && m.authorId !== user?.id) return false;
     if (activeTab === "waiting-room") {
-      return m.status === "closed" && (m.authorId === user?.id || m.acceptedApplicantId === user?.id);
+      return status === "closed" && (m.authorId === user?.id || m.acceptedApplicantId === user?.id);
     }
-    if (activeTab === "all" && m.status !== "open") return false;
+    if (activeTab === "all" && status !== "open") return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       if (!m.authorName?.toLowerCase().includes(q) && !m.note?.toLowerCase().includes(q) && !m.sport?.toLowerCase().includes(q)) return false;
@@ -172,6 +189,31 @@ export function Matchmaking() {
       setRating(5);
       setRatingComment("");
     } catch { toast.error("Lỗi khi gửi đánh giá"); }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportReason.trim()) { toast.error("Vui lòng nhập lý do báo cáo!"); return; }
+    try {
+      const targetId = reportMatch.authorId === user?.id ? reportMatch.acceptedApplicantId : reportMatch.authorId;
+      await createReport({
+        matchId: reportMatch.id,
+        reporterId: user?.id,
+        reporterName: user?.user_metadata?.name || user?.email?.split('@')[0],
+        targetId, reason: reportReason,
+        createdAt: new Date().toISOString()
+      });
+      if (targetId) {
+        getProfile(targetId).then(p => {
+          if (p) updateProfile(targetId, {
+            reputationScore: Math.max(0, (p.reputationScore || 100) - 20)
+          });
+        });
+      }
+      toast.success("Đã gửi báo cáo!");
+      setShowReportModal(false);
+      setReportReason("");
+      setReportMatch(null);
+    } catch { toast.error("Lỗi khi gửi báo cáo"); }
   };
 
   const formatTime = (t: string) => {
@@ -426,6 +468,7 @@ export function Matchmaking() {
         })}
       </div>
 
+      {/* Waiting Room Modal */}
       <AnimatePresence>
         {showWaitingRoom && selectedMatch && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -442,15 +485,30 @@ export function Matchmaking() {
                   <X size={16} />
                 </button>
               </div>
+
               <div className="p-4 bg-slate-50 border-b border-slate-100">
                 <p className="text-xs font-bold text-slate-500 mb-2">THÀNH VIÊN</p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-3">
                   <span className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-xs font-bold">👑 {selectedMatch.authorName}</span>
                   {selectedMatch.acceptedApplicantName && (
                     <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">✅ {selectedMatch.acceptedApplicantName}</span>
                   )}
                 </div>
+                {/* Gợi ý địa điểm */}
+                <div className="bg-white rounded-xl p-3 border border-slate-200">
+                  <p className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                    <MapPin size={12} className="text-orange-500" /> GỢI Ý ĐỊA ĐIỂM CHO {selectedMatch.sport?.toUpperCase()}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(venuesBySport[selectedMatch.sport] || ["Chưa có gợi ý"]).map((venue, i) => (
+                      <span key={i} className="bg-orange-50 text-orange-600 px-2 py-1 rounded-lg text-xs font-semibold border border-orange-100">
+                        📍 {venue}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
+
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {isLoadingMessages ? (
                   <div className="flex justify-center py-8"><Loader2 className="animate-spin text-teal-600" size={24} /></div>
@@ -485,6 +543,7 @@ export function Matchmaking() {
         )}
       </AnimatePresence>
 
+      {/* Rating Modal */}
       <AnimatePresence>
         {showRatingModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -504,13 +563,57 @@ export function Matchmaking() {
                 placeholder="Nhận xét về buổi chơi, đối tác của bạn..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-teal-500 h-24 resize-none mb-4" />
               <div className="flex gap-3">
+                <button onClick={() => { setShowRatingModal(false); setReportMatch(ratingMatch); setShowReportModal(true); }}
+                  className="flex-1 py-2.5 rounded-xl border-2 border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 flex items-center justify-center gap-2">
+                  <Flag size={16} /> Báo Cáo
+                </button>
                 <button onClick={() => setShowRatingModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
+                  className="px-4 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
                   Bỏ qua
                 </button>
                 <button onClick={handleSubmitRating}
                   className="flex-1 py-2.5 rounded-xl bg-teal-800 text-white font-bold text-sm hover:bg-teal-900">
                   Gửi Đánh Giá
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Report Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6">
+              <h2 className="font-black text-red-600 text-xl mb-1 flex items-center gap-2">
+                <Flag size={20} /> Báo Cáo Người Chơi
+              </h2>
+              <p className="text-sm text-slate-500 mb-6">Bạn muốn báo cáo người này? Hệ thống sẽ trừ 20 điểm uy tín của họ.</p>
+              <div className="mb-4">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Lý do báo cáo</label>
+                <div className="space-y-2 mb-3">
+                  {["Bùng kèo không báo trước","Thái độ không tốt","Thông tin sai sự thật","Quấy rối","Lý do khác"].map(reason => (
+                    <button key={reason} onClick={() => setReportReason(reason)}
+                      className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${reportReason === reason ? 'border-red-400 bg-red-50 text-red-600' : 'border-slate-100 hover:border-slate-200 text-slate-600'}`}>
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+                <textarea value={reportReason} onChange={e => setReportReason(e.target.value)}
+                  placeholder="Hoặc nhập lý do cụ thể..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-400 h-20 resize-none" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => { setShowReportModal(false); setReportReason(""); }}
+                  className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
+                  Hủy
+                </button>
+                <button onClick={handleSubmitReport}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 flex items-center justify-center gap-2">
+                  <Flag size={16} /> Gửi Báo Cáo
                 </button>
               </div>
             </motion.div>

@@ -14,6 +14,9 @@ type Match = {
   time: string;
   authorId: string;
   createdAt: string;
+  peopleNeeded?: number;
+  gender?: string;
+  status?: 'open' | 'closed';
 };
 
 export function Matchmaking() {
@@ -22,12 +25,19 @@ export function Matchmaking() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState('Mọi cấp độ');
+  const [selectedGender, setSelectedGender] = useState('Tất cả');
+  const [selectedSport, setSelectedSport] = useState('Tất cả');
+  const [showOpenOnly, setShowOpenOnly] = useState(true);
   
   const [formData, setFormData] = useState({
     sport: "Cầu lông",
     level: "Mới bắt đầu",
     location: "Cơ sở B",
     time: "17:00",
+    peopleNeeded: 1,
+    gender: "Tất cả",
   });
 
   const fetchMatches = async () => {
@@ -63,6 +73,7 @@ export function Matchmaking() {
         ...formData,
         name: user?.user_metadata?.name || user?.email?.split('@')[0],
         authorId: user?.id,
+        status: 'open',
       };
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-eeef72dc/matches`, {
@@ -87,11 +98,20 @@ export function Matchmaking() {
   };
 
   const mockUsers = [
-    { id: 'm1', name: "Nguyễn Văn A", sport: "Cầu lông", level: "Trung bình", location: "Cơ sở B", time: "Chiều 17:00" },
-    { id: 'm2', name: "Trần Thị B", sport: "Chạy bộ", level: "Mới bắt đầu", location: "Ký túc xá", time: "Sáng 06:00" },
+    { id: 'm1', name: "Nguyễn Văn A", sport: "Cầu lông", level: "Trung bình", location: "Cơ sở B", time: "Chiều 17:00", peopleNeeded: 2, gender: "Nam", status: 'open' as const },
+    { id: 'm2', name: "Trần Thị B", sport: "Chạy bộ", level: "Mới bắt đầu", location: "Ký túc xá", time: "Sáng 06:00", peopleNeeded: 1, gender: "Nữ", status: 'open' as const },
   ];
 
-  const displayMatches = matches.length > 0 ? matches : mockUsers;
+  const filteredMatches = displayMatches.filter((m: any) => {
+    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         m.sport.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         m.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesLevel = selectedLevel === 'Mọi cấp độ' || m.level === selectedLevel;
+    const matchesGender = selectedGender === 'Tất cả' || m.gender === selectedGender;
+    const matchesSport = selectedSport === 'Tất cả' || m.sport === selectedSport;
+    const matchesStatus = !showOpenOnly || m.status === 'open';
+    return matchesSearch && matchesLevel && matchesGender && matchesSport && matchesStatus;
+  });
 
   return (
     <div className="space-y-6 pb-16 md:pb-0">
@@ -108,24 +128,72 @@ export function Matchmaking() {
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-          <input type="text" placeholder="Tìm theo môn thể thao..." className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-teal-500" />
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+            <input 
+              type="text" 
+              placeholder="Tìm theo tên, môn thể thao, địa điểm..." 
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-teal-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-        <select className="border border-gray-200 rounded-lg px-4 py-2 bg-white focus:outline-none focus:border-teal-500">
-          <option>Mọi cấp độ</option>
-          <option>Mới bắt đầu</option>
-          <option>Trung bình</option>
-          <option>Nâng cao</option>
-        </select>
+        
+        <div className="flex flex-wrap gap-3">
+          <select 
+            className="border border-gray-200 rounded-lg px-4 py-2 bg-white focus:outline-none focus:border-teal-500"
+            value={selectedSport}
+            onChange={(e) => setSelectedSport(e.target.value)}
+          >
+            <option>Tất cả môn</option>
+            <option>Cầu lông</option>
+            <option>Bóng đá</option>
+            <option>Bóng rổ</option>
+            <option>Chạy bộ</option>
+            <option>Tennis</option>
+          </select>
+          
+          <select 
+            className="border border-gray-200 rounded-lg px-4 py-2 bg-white focus:outline-none focus:border-teal-500"
+            value={selectedLevel}
+            onChange={(e) => setSelectedLevel(e.target.value)}
+          >
+            <option>Mọi cấp độ</option>
+            <option>Mới bắt đầu</option>
+            <option>Trung bình</option>
+            <option>Nâng cao</option>
+          </select>
+          
+          <select 
+            className="border border-gray-200 rounded-lg px-4 py-2 bg-white focus:outline-none focus:border-teal-500"
+            value={selectedGender}
+            onChange={(e) => setSelectedGender(e.target.value)}
+          >
+            <option>Tất cả giới tính</option>
+            <option>Nam</option>
+            <option>Nữ</option>
+          </select>
+          
+          <label className="flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              checked={showOpenOnly}
+              onChange={(e) => setShowOpenOnly(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm font-medium">Chỉ hiện "Đang mở"</span>
+          </label>
+        </div>
       </div>
 
       {loading ? (
         <div className="text-center py-10 text-gray-500">Đang tải dữ liệu...</div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayMatches.map((m: any) => (
+          {filteredMatches.map((m: any) => (
             <div key={m.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-teal-300 transition-colors">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
@@ -134,14 +202,22 @@ export function Matchmaking() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">{m.name}</h3>
-                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">{m.sport}</span>
+                    <div className="flex gap-2">
+                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">{m.sport}</span>
+                      {m.status === 'open' && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Đang mở</span>}
+                    </div>
                   </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-teal-600">{m.peopleNeeded || 1} người cần</div>
+                  <div className="text-xs text-gray-500">cần tìm</div>
                 </div>
               </div>
               <div className="space-y-2 text-sm text-gray-600 mb-4">
                 <p className="flex items-center gap-2"><MapPin size={16} className="text-teal-500"/> {m.location}</p>
                 <p className="flex items-center gap-2"><Clock size={16} className="text-teal-500"/> {m.time}</p>
                 <p className="flex items-center gap-2"><Activity size={16} className="text-teal-500"/> Trình độ: {m.level}</p>
+                {m.gender && <p className="flex items-center gap-2"><Users size={16} className="text-teal-500"/> Giới tính: {m.gender}</p>}
               </div>
               <button 
                 onClick={() => {
@@ -194,6 +270,7 @@ export function Matchmaking() {
                   required
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Thời gian (VD: Sáng 06:00, Chiều 17:30)</label>
                 <input 
@@ -204,14 +281,42 @@ export function Matchmaking() {
                   required
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Số người cần tìm</label>
+                <input 
+                  type="number" 
+                  min="1"
+                  max="10"
+                  value={formData.peopleNeeded}
+                  onChange={e => setFormData({...formData, peopleNeeded: parseInt(e.target.value) || 1})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-500" 
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Giới tính ưu tiên</label>
+                <select 
+                  value={formData.gender}
+                  onChange={e => setFormData({...formData, gender: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-500"
+                >
+                  <option>Tất cả</option>
+                  <option>Nam</option>
+                  <option>Nữ</option>
+                </select>
+              </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium">Hủy</button>
                 <button type="submit" className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium">Đăng bài</button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Thời gian (VD: Sáng 06:00, Chiều 17:30)</label>
+                <input 
+                  type="text" 
+                  value={formData.time}
+                  onChange={e => setFormData({...formData, time: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-500" 
+                  required
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

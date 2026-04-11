@@ -87,6 +87,14 @@ export async function likePost(postId: string) {
   return res.json();
 }
 
+export async function approvePost(postId: string) {
+  const res = await fetch(`${API_BASE}/posts/${postId}/approve`, { 
+    method: 'PUT', headers 
+  });
+  if (!res.ok) throw new Error('Failed to approve post');
+  return res.json();
+}
+
 export async function getMessages(matchId: string) {
   const res = await fetch(`${API_BASE}/messages/${matchId}`, { headers });
   if (!res.ok) return [];
@@ -106,5 +114,27 @@ export async function createReview(review: any) {
     method: 'POST', headers, body: JSON.stringify(review) 
   });
   if (!res.ok) throw new Error('Failed to create review');
+  return res.json();
+}
+
+export async function createReport(report: any) {
+  const res = await fetch(`${API_BASE}/reports`, { 
+    method: 'POST', headers, body: JSON.stringify(report) 
+  });
+  if (!res.ok) throw new Error('Failed to create report');
+  return res.json();
+}
+
+export async function getReports() {
+  const res = await fetch(`${API_BASE}/reports`, { headers });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function rejectPost(postId: string) {
+  const res = await fetch(`${API_BASE}/posts/${postId}`, { 
+    method: 'PUT', headers, body: JSON.stringify({ status: 'rejected' }) 
+  });
+  if (!res.ok) throw new Error('Failed to reject post');
   return res.json();
 }
