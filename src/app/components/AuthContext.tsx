@@ -24,17 +24,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const ADMIN_EMAILS = ['admin@uehflex.fit', 'sinhnguyen.31241026947@st.ueh.edu.vn'];
+
+  const checkIsAdmin = (userEmail?: string) => {
+    return userEmail ? ADMIN_EMAILS.includes(userEmail) : false;
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ?? null);
-      setIsAdmin((session?.user?.user_metadata?.isAdmin ?? false) === true);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      setIsAdmin(checkIsAdmin(currentUser?.email));
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setUser(session?.user ?? null);
-      setIsAdmin((session?.user?.user_metadata?.isAdmin ?? false) === true);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      setIsAdmin(checkIsAdmin(currentUser?.email));
     });
 
     return () => subscription.unsubscribe();
