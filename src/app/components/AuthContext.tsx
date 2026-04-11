@@ -8,28 +8,33 @@ export const supabase = createClient(supabaseUrl, publicAnonKey);
 interface AuthContextType {
   session: Session | null;
   user: User | null;
+  isAdmin: boolean;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
+  isAdmin: false,
   signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setIsAdmin((session?.user?.user_metadata?.isAdmin ?? false) === true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setIsAdmin((session?.user?.user_metadata?.isAdmin ?? false) === true);
     });
 
     return () => subscription.unsubscribe();
@@ -40,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, signOut }}>
+    <AuthContext.Provider value={{ session, user, isAdmin, signOut }}>
       {children}
     </AuthContext.Provider>
   );

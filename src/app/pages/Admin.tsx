@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Check, X, Loader2, Flag, AlertCircle, Eye } from "lucide-react";
+import { Check, X, Loader2, Flag, AlertCircle, Eye, Crown } from "lucide-react";
 import { getPosts, getProfile, updateProfile, getReports, approvePost, rejectPost } from "../api";
 import { useAuth } from "../components/AuthContext";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 type Post = {
@@ -26,14 +27,33 @@ type Report = {
   resolved?: boolean;
 };
 
+type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  isAdmin: boolean;
+  createdAt: string;
+};
+
 export function Admin() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("posts");
   const [posts, setPosts] = useState<Post[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+
+  // Check if user is admin - redirect if not
+  useEffect(() => {
+    if (!isAdmin) {
+      toast.error("Bạn không có quyền truy cập trang này!");
+      navigate("/");
+    }
+  }, [isAdmin, navigate]);
 
   const loadPosts = async () => {
     try {
@@ -54,9 +74,21 @@ export function Admin() {
     }
   };
 
+  const loadAdmins = async () => {
+    try {
+      // Giả sử lấy từ localStorage hoặc API backend
+      const stored = localStorage.getItem('adminUsers');
+      if (stored) {
+        setAdminUsers(JSON.parse(stored));
+      }
+    } catch (err) {
+      toast.error("Lỗi tải danh sách admin");
+    }
+  };
+
   useEffect(() => {
     setIsLoading(true);
-    Promise.all([loadPosts(), loadReports()]).finally(() => setIsLoading(false));
+    Promise.all([loadPosts(), loadReports(), loadAdmins()]).finally(() => setIsLoading(false));
   }, []);
 
   const handleApprovePost = async (postId: string) => {
@@ -102,6 +134,41 @@ export function Admin() {
     }
   };
 
+  const handleAddAdmin = async () => {
+    if (!newAdminEmail.trim()) return;
+    try {
+      const newAdmin: AdminUser = {
+        id: crypto.randomUUID(),
+        name: newAdminEmail.split('@')[0],
+        email: newAdminEmail.trim(),
+        isAdmin: true,
+        createdAt: new Date().toISOString()
+      };
+      const updated = [...adminUsers, newAdmin];
+      setAdminUsers(updated);
+      localStorage.setItem('adminUsers', JSON.stringify(updated));
+      setNewAdminEmail("");
+      toast.success(`Đã thêm admin: ${newAdminEmail}`);
+    } catch (err) {
+      toast.error("Lỗi thêm admin");
+    }
+  };
+
+  const handleRemoveAdmin = async (adminId: string) => {
+    if (adminId === user?.id) {
+      toast.error("Không thể xóa admin hiện tại!");
+      return;
+    }
+    try {
+      const updated = adminUsers.filter(a => a.id !== adminId);
+      setAdminUsers(updated);
+      localStorage.setItem('adminUsers', JSON.stringify(updated));
+      toast.success("Đã xóa admin!");
+    } catch (err) {
+      toast.error("Lỗi xóa admin");
+    }
+  };
+
   if (!user) {
     return (
       <div className="text-center py-20 text-slate-500">
@@ -130,7 +197,8 @@ export function Admin() {
       <div className="flex gap-6 border-b-2 border-slate-100 pb-2">
         {[
           { key: 'posts', label: 'Bài chờ duyệt', count: posts.length },
-          { key: 'reports', label: 'Báo cáo', count: reports.filter(r => !r.resolved).length }
+          { key: 'reports', label: 'Báo cáo', count: reports.filter(r => !r.resolved).length },
+          { key: 'admins', label: 'Quản lý Admin', count: adminUsers.length }
         ].map(tab => (
           <button
             key={tab.key}
@@ -255,6 +323,78 @@ export function Admin() {
             </div>
           )}
         </AnimatePresence>
+      )}
+
+      {activeTab === 'admins' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border-2 border-teal-100 p-6 shadow-sm">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Crown size={20} className="text-yellow-600" />
+              Thêm Admin Mới
+            </h3>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={newAdminEmail}
+                onChange={(e) => setNewAdminEmail(e.target.value)}
+                placeholder="Email của admin mới..."
+                className="flex-1 px-4 py-2 border-2 border-slate-200 rounded-lg focus:outline-none focus:border-teal-600 font-medium"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddAdmin()}
+              />
+              <button
+                onClick={handleAddAdmin}
+                className="px-6 py-2 bg-teal-600 text-white rounded-lg font-bold hover:bg-teal-700 flex items-center gap-2 transition-colors"
+              >
+                <Check size={16} /> Thêm
+              </button>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {adminUsers.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <Crown size={48} className="mx-auto mb-4 text-slate-300" />
+                <p className="font-medium">Chưa có admin nào</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {adminUsers.map(admin => (
+                  <motion.div
+                    key={admin.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-2xl border-2 border-yellow-100 p-5 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                          <Crown size={16} className="text-yellow-600" />
+                          {admin.name}
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">{admin.email}</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {new Date(admin.createdAt).toLocaleString('vi-VN')}
+                        </p>
+                      </div>
+                      {admin.id !== user?.id ? (
+                        <button
+                          onClick={() => handleRemoveAdmin(admin.id)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm hover:bg-red-700 flex items-center gap-2 transition-colors"
+                        >
+                          <X size={16} /> Xóa
+                        </button>
+                      ) : (
+                        <span className="px-4 py-2 bg-teal-100 text-teal-700 rounded-lg font-bold text-sm">
+                          (Tài khoản hiện tại)
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
     </div>
   );

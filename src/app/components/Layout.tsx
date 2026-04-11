@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 
 export function Layout() {
   const location = useLocation();
-  const { session, user, signOut } = useAuth();
+  const { session, user, isAdmin, signOut } = useAuth();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{sender: string, text: string, isBot: boolean}[]>([
     { sender: 'bot', text: 'Chào bạn! Mình là AI Assistant của UEH Flex-Fit Connect. Mình có thể giúp bạn tìm lịch trống hoặc sân bãi nhé!', isBot: true }
@@ -49,7 +49,7 @@ export function Layout() {
     { path: "/match", label: "Ghép cặp", icon: Users },
     { path: "/venues", label: "Địa điểm", icon: MapPin },
     { path: "/messages", label: "Tin nhắn", icon: MessageCircle },
-    { path: "/admin", label: "Quản Trị", icon: Shield },
+    ...(isAdmin ? [{ path: "/admin", label: "Quản Trị", icon: Shield }] : []),
   ];
 
   return (

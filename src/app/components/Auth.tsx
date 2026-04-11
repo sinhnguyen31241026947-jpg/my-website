@@ -21,6 +21,22 @@ export function Auth({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
 
   const sportOptions = ['Bóng rổ', 'Bơi lội', 'Bóng bàn', 'Cầu lông', 'Chạy bộ', 'Tennis', 'Gym', 'Bóng đá'];
   
+  const isAdminEmail = (emailToCheck: string) => {
+    // Hardcode admin emails hoặc check trong localStorage
+    const ADMIN_EMAILS = ['admin@uehflex.fit', 'you@example.com']; // Thay bằng email của bạn
+    return ADMIN_EMAILS.includes(emailToCheck);
+  };
+
+  const setAdminStatus = async (userId: string, email: string, isAdmin: boolean) => {
+    try {
+      await supabase.auth.admin?.updateUserById(userId, {
+        user_metadata: { isAdmin }
+      });
+    } catch (err) {
+      console.error('Error setting admin status:', err);
+    }
+  };
+  
   const toggleInterest = (sport: string) => {
     setInterests(prev => prev.includes(sport) ? prev.filter(s => s !== sport) : [...prev, sport]);
   };
@@ -30,13 +46,18 @@ export function Auth({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
     setLoading(true);
 
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) {
         toast.error('Đăng nhập thất bại: ' + error.message);
       } else {
+        // Cập nhật isAdmin status
+        if (data.user) {
+          const shouldBeAdmin = isAdminEmail(email);
+          await setAdminStatus(data.user.id, email, shouldBeAdmin);
+        }
         toast.success('Đăng nhập thành công!');
         onAuthSuccess?.();
       }
@@ -54,11 +75,16 @@ export function Auth({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
         
         if (res.ok) {
           toast.success('Đăng ký thành công! Đang tự động đăng nhập...');
-          const { error: signInError } = await supabase.auth.signInWithPassword({
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
-          if (!signInError) onAuthSuccess?.();
+          if (!signInError && signInData?.user) {
+            // Cập nhật isAdmin status sau signup
+            const shouldBeAdmin = isAdminEmail(email);
+            await setAdminStatus(signInData.user.id, email, shouldBeAdmin);
+            onAuthSuccess?.();
+          }
         } else {
           if (data.error?.includes('already been registered') || data.error?.includes('already registered')) {
             toast.error('Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng email khác.');
