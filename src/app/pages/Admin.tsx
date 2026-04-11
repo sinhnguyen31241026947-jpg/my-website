@@ -58,7 +58,7 @@ export function Admin() {
   const loadPosts = async () => {
     try {
       const data = await getPosts();
-      const pending = (data || []).filter((p: any) => p.status !== 'approved');
+      const pending = (data || []).filter((p: any) => p.status === 'pending' || !p.status);
       setPosts(pending);
     } catch (err) {
       toast.error("Lỗi tải bài viết chờ duyệt");
