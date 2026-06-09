@@ -5,6 +5,95 @@ import { Link } from "react-router";
 import { getVenues, getMatches } from "../api";
 import bannerImg from "../../imports/banner.png.png";
 
+const introductionParagraphs = [
+  "UEH Flex-Fit Connect là tính năng được phát triển trong ứng dụng UEH Student, nhằm hỗ trợ sinh viên UEH kết nối với những sinh viên khác có cùng nhu cầu chơi thể thao theo hình thức linh hoạt, phù hợp với thời gian biểu cá nhân. Dự án xuất phát từ thực tế nhiều sinh viên muốn vận động để nâng cao sức khỏe, giảm căng thẳng sau giờ học nhưng gặp khó khăn do thiếu người đồng hành, khó sắp xếp thời gian hoặc ngại tham gia các câu lạc bộ yêu cầu cam kết lâu dài.",
+  "Khác với mô hình câu lạc bộ truyền thống, UEH Flex-Fit Connect tạo ra một không gian kết nối mở, nơi sinh viên có thể ghép cặp với bạn chơi phù hợp về thời gian rảnh, sở thích và trình độ, đồng thời tìm kiếm địa điểm tập luyện thuận tiện, uy tín và gần các cơ sở UEH. Nhờ đó, người dùng tiết kiệm thời gian tìm kiếm và có thêm cơ hội trải nghiệm các môn thể thao theo nhu cầu ngắn hạn, linh hoạt.",
+  "Bên cạnh chức năng kết nối, dự án còn góp phần xây dựng cộng đồng thể thao sinh viên tích cực thông qua các tính năng như chia sẻ các khoảnh khắc lên story, điểm uy tín, huy hiệu và gợi ý địa điểm gần nhất. Những yếu tố này giúp giảm rào cản tâm lý cho người mới, hạn chế tình trạng bùng kèo, tăng động lực tham gia và thúc đẩy sự gắn kết trong cộng đồng sinh viên UEH.",
+];
+
+const regulationSections = [
+  {
+    title: "Quy định về hành vi người dùng",
+    lead: "Người dùng cam kết:",
+    items: [
+      "Sử dụng thông tin cá nhân chính xác",
+      "Không mạo danh người khác",
+      "Không quấy rối, gây ảnh hưởng tiêu cực đến cộng đồng",
+      "Không thu thập dữ liệu trái phép",
+    ],
+  },
+  {
+    title: "Trách nhiệm của người dùng",
+    items: [
+      "Tự chịu trách nhiệm với nội dung đã đăng",
+      "Tự liên hệ và làm việc trực tiếp với các địa điểm",
+      "Tự đánh giá độ tin cậy của thông tin",
+    ],
+  },
+  {
+    title: "Giới hạn trách nhiệm của nền tảng",
+    lead: "Chúng tôi:",
+    items: [
+      "Không đảm bảo tính chính xác tuyệt đối của thông tin địa điểm",
+      "Không tham gia vào các giao dịch giữa người dùng và bên thứ ba",
+      "Không chịu trách nhiệm về giá cả, chất lượng dịch vụ, lịch trống hoặc thay đổi từ địa điểm",
+    ],
+  },
+  {
+    title: "Xử lý vi phạm",
+    lead: "Tùy mức độ vi phạm, chúng tôi có quyền:",
+    items: [
+      "Nhắc nhở",
+      "Xóa nội dung",
+      "Trừ điểm rèn luyện",
+      "Tạm khóa tài khoản",
+      "Khóa vĩnh viễn tài khoản",
+    ],
+  },
+  {
+    title: "Bảo mật thông tin",
+    items: [
+      "Thông tin cá nhân được sử dụng nhằm mục đích vận hành nền tảng",
+      "Không chia sẻ cho bên thứ ba nếu không có sự đồng ý, trừ khi pháp luật yêu cầu",
+    ],
+  },
+  {
+    title: "Thay đổi điều khoản",
+    items: [
+      "Chúng tôi có thể cập nhật quy định bất kỳ lúc nào.",
+      "Người dùng có trách nhiệm theo dõi và cập nhật.",
+    ],
+  },
+];
+
+const getConfirmedParticipants = (match: any) => {
+  if (Array.isArray(match.confirmedParticipants) && match.confirmedParticipants.length > 0) {
+    return match.confirmedParticipants;
+  }
+  if (match.acceptedApplicantId) {
+    return [{ id: match.acceptedApplicantId, name: match.acceptedApplicantName || "Người chơi UEH" }];
+  }
+  return [];
+};
+
+const isMatchStillOpenForBuddies = (match: any) => {
+  if (!match?.id) return false;
+
+  const status = match.status || "open";
+  if (status !== "open") return false;
+
+  if (match.startTime) {
+    const startTime = new Date(match.startTime).getTime();
+    if (Number.isFinite(startTime) && startTime <= Date.now()) {
+      return false;
+    }
+  }
+
+  const confirmedParticipants = getConfirmedParticipants(match);
+  const maxPlayers = Number(match.maxPlayers) || 1;
+  return confirmedParticipants.length < maxPlayers;
+};
+
 export function Home() {
   const [venues, setVenues] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -26,6 +115,20 @@ export function Home() {
       </div>
     );
   }
+
+  const validVenues = venues.filter((venue) => venue?.id);
+  const partnerVenueCount = validVenues.filter((venue) => venue.isPartner).length;
+  const availableMatches = users
+    .filter(isMatchStillOpenForBuddies)
+    .sort((first, second) => new Date(first?.startTime || first?.createdAt || 0).getTime() - new Date(second?.startTime || second?.createdAt || 0).getTime());
+  const openMatchCount = availableMatches.length;
+
+  const homeStats = [
+    { label: "Deal phòng tập", value: `${partnerVenueCount} Ưu đãi`, icon: Flame, color: "text-orange-500", bg: "bg-orange-50" },
+    { label: "Đang tìm bạn", value: `${openMatchCount} Yêu cầu`, icon: Users, color: "text-teal-600", bg: "bg-teal-50" },
+    { label: "Địa điểm gần đây", value: `${validVenues.length} Nơi`, icon: MapPin, color: "text-emerald-600", bg: "bg-emerald-50" },
+    { label: "Sự kiện sắp tới", value: "0 Sự kiện", icon: Activity, color: "text-amber-500", bg: "bg-amber-50" },
+  ];
 
   return (
     <div className="pb-16 md:pb-0">
@@ -53,7 +156,7 @@ export function Home() {
               Kết Nối <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-500">Đam Mê</span>
             </h1>
             <p className="text-slate-300 text-base md:text-xl mb-10 max-w-2xl font-medium leading-relaxed">
-              Cộng đồng thể thao lớn nhất dành cho sinh viên UEH. Cùng nhau tập luyện, cùng nhau phát triển.
+              Trang thể thao lớn nhất dành cho sinh viên UEH. Cùng nhau tập luyện, cùng nhau phát triển.
             </p>
             <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
               <Link 
@@ -77,12 +180,7 @@ export function Home() {
       <div className="max-w-5xl mx-auto w-full p-4 md:p-6 space-y-10">
         {/* Quick Stats / Shortcuts */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Deal phòng tập", value: "12 Ưu đãi", icon: Flame, color: "text-orange-500", bg: "bg-orange-50" },
-          { label: "Đang tìm bạn", value: "34 Yêu cầu", icon: Users, color: "text-teal-600", bg: "bg-teal-50" },
-          { label: "Địa điểm gần đây", value: "8 Nơi", icon: MapPin, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Sự kiện sắp tới", value: "3 Sự kiện", icon: Activity, color: "text-amber-500", bg: "bg-amber-50" },
-        ].map((stat, idx) => (
+        {homeStats.map((stat, idx) => (
           <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-teal-100 transition-colors">
             <div className={`p-3 rounded-xl ${stat.bg}`}>
               <stat.icon className={stat.color} size={24} strokeWidth={2.5} />
@@ -145,9 +243,9 @@ export function Home() {
             </Link>
           </div>
           <div className="space-y-4">
-            {!users || users.filter(Boolean).length === 0 ? (
+            {availableMatches.length === 0 ? (
               <div className="text-center py-6 text-slate-500 text-sm">Chưa có ai treo bảng tìm bạn.</div>
-            ) : users.filter(Boolean).slice(0, 3).map((match, idx) => (
+            ) : availableMatches.slice(0, 3).map((match, idx) => (
               <motion.div whileHover={{ y: -2 }} key={match.id || idx} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-800 font-bold flex items-center justify-center text-sm uppercase">
@@ -171,6 +269,57 @@ export function Home() {
           </div>
         </section>
       </div>
+
+      <section className="space-y-6">
+        <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-7 shadow-sm md:px-8">
+          <h2 className="flex items-center gap-3 text-2xl font-black text-teal-900 md:text-3xl">
+            <MapPin size={24} className="text-orange-500" /> Đề xuất địa điểm tập luyện
+          </h2>
+          <p className="mt-4 text-base font-medium leading-relaxed text-slate-600 md:text-lg">
+            Bạn có thể khám phá, đánh giá và đề xuất các phòng tập, sân bãi, địa điểm thể thao quanh UEH. Tính năng này giúp cộng đồng dễ dàng tìm được nơi tập phù hợp, cập nhật ưu đãi mới nhất và chia sẻ trải nghiệm thực tế.
+          </p>
+          <p className="mt-4 text-sm leading-relaxed text-slate-600 md:text-base">
+            <span className="font-black text-slate-700">Hướng dẫn:</span> Vào mục <span className="font-bold text-teal-700">Địa điểm</span> để xem danh sách sân tập, lọc theo loại hình, vị trí. Nếu bạn biết địa điểm mới, hãy nhấn <span className="font-bold text-orange-600">Đăng địa điểm</span> để đóng góp cho web. Địa điểm được đề xuất sẽ hiển thị công khai.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500 md:text-base">
+            Khi thêm địa điểm, bạn có thể lấy <span className="font-bold text-slate-700">Vĩ độ</span> và <span className="font-bold text-slate-700">Kinh độ</span> từ Google Maps bằng cách tìm đúng địa điểm, nhấp chuột phải vào điểm ghim để sao chép tọa độ. Dãy số đầu tiên là Vĩ độ, dãy số thứ hai là Kinh độ. Nếu dùng điện thoại, hãy chạm giữ vào vị trí trên bản đồ để thả ghim rồi sao chép cặp tọa độ đó.
+          </p>
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-7 shadow-sm md:px-8">
+          <h2 className="flex items-center gap-3 text-2xl font-black text-teal-900 md:text-3xl">
+            <Users size={24} className="text-teal-600" /> Giới thiệu
+          </h2>
+          <div className="mt-4 space-y-4 text-sm leading-relaxed text-slate-600 md:text-base">
+            {introductionParagraphs.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-7 shadow-sm md:px-8">
+          <h2 className="flex items-center gap-3 text-2xl font-black text-teal-900 md:text-3xl">
+            <Activity size={24} className="text-orange-500" /> Quy định
+          </h2>
+          <p className="mt-4 text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Các quy định</p>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {regulationSections.map((section) => (
+              <div key={section.title} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
+                <h3 className="text-base font-black text-slate-900">{section.title}</h3>
+                {section.lead ? <p className="mt-2 text-sm font-semibold text-slate-600">{section.lead}</p> : null}
+                <ul className="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">
+                  {section.items.map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span aria-hidden="true" className="flex-shrink-0 mt-1 h-2 w-2 rounded-full bg-teal-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
       </div>
     </div>
   );
